@@ -34,7 +34,11 @@ const reducer = (state, action) => {
         ...state,
         tasks: state.tasks.map((task) =>
           task.id === action.payload
-            ? { ...task, completed: !task.completed }
+            ? {
+                ...task,
+                completed: !task.completed,
+                completedAt: !task.completed ? new Date().toISOString() : null,
+              }
             : task
         ),
       }
@@ -59,6 +63,30 @@ const reducer = (state, action) => {
 export const TasksProvider = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState)
 
+  // Supprime les taches terminees depuis plus de 3 jours
+  const cleanupOldCompletedTasks = async (tasks) => {
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000
+    const now = Date.now()
+
+    const tasksToDelete = tasks.filter((task) => {
+      if (!task.completed || !task.completedAt) return false
+      const completedTime = new Date(task.completedAt).getTime()
+      return now - completedTime > THREE_DAYS_MS
+    })
+
+    // Supprime de la base de donnees
+    for (const task of tasksToDelete) {
+      try {
+        await deleteTask(task.id)
+      } catch {
+        // Ignore les erreurs de suppression
+      }
+    }
+
+    // Retourne les taches filtrees
+    return tasks.filter((task) => !tasksToDelete.some((t) => t.id === task.id))
+  }
+
   // Charge les taches au demarrage
   useEffect(() => {
     let mounted = true
@@ -73,7 +101,9 @@ export const TasksProvider = ({ children }) => {
       try {
         const data = await loadTasks()
         if (mounted) {
-          dispatch({ type: 'set_tasks', payload: data || [] })
+          // Nettoie les anciennes taches terminees
+          const cleanedTasks = await cleanupOldCompletedTasks(data || [])
+          dispatch({ type: 'set_tasks', payload: cleanedTasks })
         }
       } catch (error) {
         if (mounted) {
@@ -123,7 +153,11 @@ export const TasksProvider = ({ children }) => {
     const task = state.tasks.find((t) => t.id === taskId)
     if (!task) return
 
-    const updated = { ...task, completed: !task.completed }
+    const updated = {
+      ...task,
+      completed: !task.completed,
+      completedAt: !task.completed ? new Date().toISOString() : null,
+    }
     dispatch({ type: 'toggle_task', payload: taskId })
     await persistTask(updated)
   }

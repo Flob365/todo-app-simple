@@ -66,4 +66,20 @@
       transform: scale(1);
     }
   }
+
+  /* Animation d'enregistrement vocal */
+  .recording-pulse {
+    animation: recordingPulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes recordingPulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.8;
+    }
+  }
 }

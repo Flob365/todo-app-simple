@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react'
+import { Mic, Loader2 } from 'lucide-react'
 import { TasksProvider, useTasks } from './state/TasksContext'
+import { useVoiceRecorder } from './hooks/useVoiceRecorder'
 import { cn } from './lib/utils'
 
 // Toggle Pro / Perso
@@ -36,10 +38,29 @@ const CategoryToggle = () => {
   )
 }
 
+// Messages d'erreur pour le microphone
+const voiceErrorMessages = {
+  NO_API_KEY: 'Cle API OpenAI non configuree (VITE_OPENAI_API_KEY).',
+  PERMISSION_DENIED: 'Acces au microphone refuse.',
+  MICROPHONE_ERROR: 'Erreur d\'acces au microphone.',
+  INVALID_API_KEY: 'Cle API OpenAI invalide.',
+  RATE_LIMITED: 'Trop de requetes. Reessayez plus tard.',
+  NETWORK_ERROR: 'Erreur de connexion.',
+  TRANSCRIPTION_FAILED: 'Erreur de transcription. Reessayez.',
+}
+
 // Champ pour ajouter une tache
 const AddTaskInput = () => {
   const [value, setValue] = useState('')
   const { addTask } = useTasks()
+  const {
+    isRecording,
+    isTranscribing,
+    error: voiceError,
+    startRecording,
+    stopRecording,
+    clearError,
+  } = useVoiceRecorder()
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -48,23 +69,67 @@ const AddTaskInput = () => {
     setValue('')
   }
 
+  const handleMicClick = async () => {
+    clearError()
+    if (isRecording) {
+      const transcribedText = await stopRecording()
+      if (transcribedText) {
+        setValue((prev) => (prev ? `${prev} ${transcribedText}` : transcribedText))
+      }
+    } else {
+      await startRecording()
+    }
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="relative">
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Ajouter une tache..."
-        className="w-full rounded-xl border border-border bg-white px-4 py-3.5 text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-all"
-      />
+    <div className="space-y-2">
+      <form onSubmit={handleSubmit} className="relative">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Ajouter une tache..."
+          className="w-full rounded-xl border border-border bg-white px-4 py-3.5 pr-24 text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring transition-all"
+        />
+
+        {/* Bouton ajouter */}
+        <button
+          type="submit"
+          disabled={!value.trim()}
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-30 transition-opacity hover:opacity-80"
+        >
+          Ajouter
+        </button>
+      </form>
+
+      {/* Message d'erreur */}
+      {voiceError && (
+        <p className="text-sm text-destructive px-1">
+          {voiceErrorMessages[voiceError] || 'Une erreur est survenue.'}
+        </p>
+      )}
+
+      {/* Bouton microphone flottant en bas */}
       <button
-        type="submit"
-        disabled={!value.trim()}
-        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-30 transition-opacity hover:opacity-80"
+        type="button"
+        onClick={handleMicClick}
+        disabled={isTranscribing}
+        className={cn(
+          'fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full shadow-lg transition-all',
+          isRecording
+            ? 'bg-red-500 text-white recording-pulse shadow-red-500/30'
+            : 'bg-foreground text-background hover:opacity-90',
+          isTranscribing && 'opacity-50 cursor-not-allowed'
+        )}
+        aria-label={isRecording ? "Arreter l'enregistrement" : 'Enregistrer une tache'}
       >
-        Ajouter
+        {isTranscribing ? (
+          <Loader2 className="h-7 w-7 animate-spin" />
+        ) : (
+          <Mic className="h-7 w-7" />
+        )}
       </button>
-    </form>
+    </div>
   )
 }
 
