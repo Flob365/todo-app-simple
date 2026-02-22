@@ -67,6 +67,14 @@
     }
   }
 
+  /* Animation swipe-to-complete */
+  @keyframes swipeHint {
+    0% { transform: translateX(0); }
+    30% { transform: translateX(-18px); }
+    60% { transform: translateX(-8px); }
+    100% { transform: translateX(0); }
+  }
+
   /* Animation d'enregistrement vocal */
   .recording-pulse {
     animation: recordingPulse 1.5s ease-in-out infinite;

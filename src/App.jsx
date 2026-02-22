@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { Mic, Loader2 } from 'lucide-react'
 import { TasksProvider, useTasks } from './state/TasksContext'
 import { useVoiceRecorder } from './hooks/useVoiceRecorder'
@@ -134,51 +134,103 @@ const AddTaskInput = () => {
 }
 
 // Element de tache
+const SWIPE_THRESHOLD = 80
+
 const TaskItem = ({ task }) => {
   const { toggleTask, removeTask } = useTasks()
+  const [translateX, setTranslateX] = useState(0)
+  const [isSwiping, setIsSwiping] = useState(false)
+  const touchStartX = useRef(null)
+
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX
+    setIsSwiping(true)
+  }
+
+  const handleTouchMove = (e) => {
+    if (touchStartX.current === null) return
+    const delta = e.touches[0].clientX - touchStartX.current
+    if (delta < 0) {
+      setTranslateX(Math.max(delta, -120))
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (Math.abs(translateX) >= SWIPE_THRESHOLD) {
+      toggleTask(task.id)
+    }
+    setTranslateX(0)
+    setIsSwiping(false)
+    touchStartX.current = null
+  }
+
+  const swipeProgress = Math.min(Math.abs(translateX) / SWIPE_THRESHOLD, 1)
 
   return (
-    <div className="task-enter group flex items-center gap-3 rounded-xl bg-white border border-border px-4 py-3.5 transition-all hover:border-ring/30">
-      <button
-        onClick={() => toggleTask(task.id)}
-        className={cn(
-          'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200',
-          task.completed
-            ? 'border-foreground bg-foreground checkbox-pop'
-            : 'border-border hover:border-muted-foreground'
-        )}
+    <div className="task-enter relative overflow-hidden rounded-xl">
+      {/* Fond vert révélé au swipe gauche */}
+      <div
+        className="absolute inset-0 flex items-center justify-end pr-5 rounded-xl bg-emerald-500"
+        style={{ opacity: swipeProgress }}
+        aria-hidden="true"
       >
-        {task.completed && (
-          <svg
-            className="h-3 w-3 text-background"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={3}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        )}
-      </button>
-
-      <span
-        className={cn(
-          'flex-1 text-base transition-all duration-200',
-          task.completed && 'text-muted-foreground line-through'
-        )}
-      >
-        {task.title}
-      </span>
-
-      <button
-        onClick={() => removeTask(task.id)}
-        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-1 md:opacity-0"
-        aria-label="Supprimer"
-      >
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
         </svg>
-      </button>
+      </div>
+
+      {/* Contenu de la tâche (glisse à gauche) */}
+      <div
+        className="group flex items-center gap-3 rounded-xl bg-white border border-border px-4 py-3.5 transition-colors hover:border-ring/30"
+        style={{
+          transform: `translateX(${translateX}px)`,
+          transition: isSwiping ? 'none' : 'transform 0.3s ease-out',
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <button
+          onClick={() => toggleTask(task.id)}
+          className={cn(
+            'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200',
+            task.completed
+              ? 'border-foreground bg-foreground checkbox-pop'
+              : 'border-border hover:border-muted-foreground'
+          )}
+        >
+          {task.completed && (
+            <svg
+              className="h-3 w-3 text-background"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={3}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </button>
+
+        <span
+          className={cn(
+            'flex-1 text-base transition-all duration-200',
+            task.completed && 'text-muted-foreground line-through'
+          )}
+        >
+          {task.title}
+        </span>
+
+        <button
+          onClick={() => removeTask(task.id)}
+          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-1 md:opacity-0"
+          aria-label="Supprimer"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
     </div>
   )
 }
